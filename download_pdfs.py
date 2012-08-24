@@ -23,9 +23,8 @@ class PDFdownloader:
         Instantiate the class with the URL from the table of contents of the
         issue and the hash key for the use mode.
         
-        Inputs:
-        toc_url:    String, table of contents URL.
-        use_mode:   String, hash key to the journal settings.
+        @param toc_url:    String, table of contents URL.
+        @param use_mode:   String, hash key to the journal settings.
         """
         
         # Open the URL

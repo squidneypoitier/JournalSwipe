@@ -1,4 +1,4 @@
-'''
+"""
 Library for dealing with the various settings that come up, reading from file,
 writing to file and various classes which are used to store the settings.
 
@@ -6,16 +6,17 @@ Settings are saved in a simple XML file.
 
 @author: GlocktopusPrime <glocktopusprime@gmail.com>
 @version: 0.1
-'''
+"""
+
 from lxml import etree;
 from os import path;
 
 current_version = 0.1; # Settings version, not program version.
 class SettingsReader:
-    '''
+    """
     Class for reading settings from file. These methods are generally accessed
     in a static way.
-    '''
+    """
     fvers = None;  # File version
     stree = None;  # Settings tree, from file.
     settings_file = ''; # TODO: Change this to an actual default location.
@@ -119,6 +120,10 @@ class SettingsWriter:
         """
         Updates the XML file from the existing tree structure, which you have
         hopefully updated now. The file will be written to the file 
+        
+        @param settings_file: String, the location where you'd like to save this
+                            to file. If this file exists, it will be 
+                            overwritten.
         """
         
         try:
@@ -137,6 +142,8 @@ class SettingsWriter:
                     a duplicate mode name, _# will be appended to the provided
                     name.
         @param modes_list: List of strings containing all the mode names.
+        @raise SettingsWriteError: Error raised if a bad root is passed or if 
+                auto_rename is set to False and a duplicate name is passed.
         """
         
         # Start by getting the existing mode names.
@@ -245,6 +252,18 @@ class CompatibilityHelper:
     versionTag = 'Version';
     
     def __init__(self, version=current_version):
+        """
+        Instantiates a CompatibilityHelper object, which contains various 
+        version-specific information that helps maintain backwards-compatibility
+        with older versions of settings files.
+        
+        @param version: Pass the root element of the file you're going to read 
+                        and its version will be read out. Alternatively, pass
+                        a float, as long as that float is a valid version.
+                        Default for the parameter is the current version.
+        
+        @raise CompatibilityException: Raised if an invalid version is passed.
+        """
         if(etree.iselement(version)):           
             # Retrieve the version from the root element.
             if self.versionTag in version.attrib:
