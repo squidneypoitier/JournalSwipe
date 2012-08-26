@@ -1,5 +1,5 @@
-<root Version="0.1">
+<root version="0.1">
 <Modes>
-	<Nature />
+	<Nature location="Nature.xml" />
 </Modes>
 </root>

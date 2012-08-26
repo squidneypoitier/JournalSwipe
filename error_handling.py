@@ -1,7 +1,7 @@
 '''
 Module for dealing with error handling in the various packages.
 
-@author: GlocktopusPrime <glocktopusprime@gmail.com>
+@author: SquidneyPoitier <squidney.poitier@gmail.com>
 @version: 0.1
 '''
 
@@ -70,5 +70,16 @@ class CompatibilityException(JSError):
          ERR_INVALID_VERSION : "An invalid version was provided."
          };      
          
-         
+class ModeException(JSError):
+    ''' 
+    Class for errors in mode fetching.
+    '''
+    
+    ERR_NO_LINK = -2;
+    ERR_NO_TAG = -3;
+    
+    _err_strings = {
+        ERR_NO_LINK : "Link locations must be specified from the first link to the page containing the PDF.",
+        ERR_NO_TAG : "No tag was specified in a Mode XML location list."
+                    };  
          

@@ -2,13 +2,12 @@
 Library for interacting with the publication's web site to find and download the PDFs as individual 
 files for later assembly.
 
-@author: GlocktopusPrime
+@author: SquidneyPoitier <squidney.poitier@gmail.com>
 @version: 0.1
 """
 import settings_manager as SettingsManager;
 from lxml import etree;
 import urlparse;
-import sys;
 
 class PDFDownloader:
     """
@@ -22,13 +21,13 @@ class PDFDownloader:
     fmode = None;
     
     def __init__(self, toc_url, use_mode):
-        """
+        '''
         Instantiate the class with the URL from the table of contents of the
         issue and the hash key for the use mode.
         
         @param toc_url:    String, table of contents URL.
         @param use_mode:   String, hash key to the journal settings.
-        """
+        '''
         
         # Get the use mode.
         sr = SettingsManager.SettingsReader();
@@ -43,11 +42,15 @@ class PDFDownloader:
         
         self.base_url = urlparse.urlparse(url).netloc;
         base_url = self.base_url;
+       
+        # Execute the steps, in order, and capture things.
         
-        parser = fmode.parser;
-        self.parser = parser;
         
         # Build the tables of contents from the URL.
+       
+        ''' 
+        Invalid code, for the moment.
+       
         tree = etree.parse(url, parser=parser, base_url=base_url);
         
         all_articles = tree.findall(fmode.allTags(fmode.articleTag));
@@ -69,6 +72,7 @@ class PDFDownloader:
                 
             self.titles[i] = link.text;
             self.links[i] = link.get('href');
+        '''
         
         
         

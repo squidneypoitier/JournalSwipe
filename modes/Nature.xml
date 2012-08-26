@@ -1,0 +1,55 @@
+<root name='Nature' nsteps='2' version='0.1'>
+	<Step n='0' parser='HTML'>
+			<titleLoc useLinkText='True' />
+			<linkLoc tag='article' articleLink='True'>
+					<li class="standard-teaser">div</li>
+					<li>hgroup</li>
+					<li>h1</li>
+					<li at="href">a</li>
+			</linkLoc>
+			<authorLoc tag='article'>
+				<li class="standard-teaser">div</li>
+				<li class="authors expandable">ul</li>
+				<li>li</li>
+			</authorLoc>
+	</Step>
+	<Step n='1' parser='HTML'>
+		<pdfLoc tag='li' class='download-pdf'>
+			<li at="href">a</li>
+		</pdfLoc>
+		<citeLoc>
+			<journalName tag='dl' class='citation'>
+				<li class='journal-title'>dd</li>
+			</journalName>
+			<volume tag='dl' class='citation'>
+				<li class='volume'>dd</li>
+			</volume>
+			<pages tag='dl' class='citation'>
+				<li class='page'>dd</li>
+			</pages>
+			<doi tag='dl' class='citation'>
+				<li class='doi'>dd</li>
+			</doi>
+		</citeLoc>
+		<suppInfo tag='div' id='supplementary-information'>
+			<pdf>
+				<li class='content'>div</li>
+				<li class='box supp-info'>div</li>
+				<li>ol</li>
+				<li>li</li>
+				<li>dl</li>
+				<li>dt</li>
+				<li at='href'>a</li>
+			</pdf>
+			<desc>
+				<li class='content'>div</li>
+				<li class='box supp-info'>div</li>
+				<li>ol</li>
+				<li>li</li>
+				<li>dl</li>
+				<li>dt</li>
+				<li>p</li>
+			</desc>
+		</suppInfo>
+	</Step>
+</root>

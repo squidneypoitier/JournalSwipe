@@ -5,7 +5,7 @@ Utility for grabbing full issues of a journal from a website and stitching them
 into a single PDF file output so that you can read through it as if you had the
 hard copy version. 
 
-@author: GlocktopusPrime
+@author: SquidneyPoitier <squidney.poitier@gmail.com>
 @version: 0.1
 """
 

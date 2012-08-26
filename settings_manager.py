@@ -4,17 +4,19 @@ writing to file and various classes which are used to store the settings.
 
 Settings are saved in a simple XML file.
 
-@author: GlocktopusPrime <glocktopusprime@gmail.com>
+@author: SquidneyPoitier <squidney.poitier@gmail.com>
 @version: 0.1
 """
 
 from lxml import etree;
 from os import path;
+from general_utils import *;
 
-from error_handling import CompatibilityException, SettingsManagerError;
+from error_handling import CompatibilityException, SettingsManagerError, ModeException;
 
 current_version = 0.1; # Settings version, not program version.
 dflt_settings_file = path.join(path.dirname(__file__), 'settings'+path.sep+'config.xml');
+dflt_modes_location = path.join(path.dirname(__file__), 'modes');
 
 class SettingsReader:
     """
@@ -60,10 +62,19 @@ class SettingsReader:
                 return None;
             
             fmode = modes.find(mode); # Find the appropriate mode in the file.
-            if(fmode == None):
+            if(fmode == None or not fvers.modeLocAttrib in fmode.attrib):
                 return None;
             
-            return fetchMode(fmode);            
+            fileLoc = fmode.attrib[fvers.modeLocAttrib];
+            if(fileLoc == None):
+                return None;
+            
+            # By default, file locations that are not absolute locations are taken to be relative 
+            # to the default 'modes' location.
+            if(not path.isabs(fileLoc)):
+                fileLoc = path.join(dflt_modes_location, fileLoc);
+            
+            return fetchMode(fileLoc);            
                         
         except:
             raise;  
@@ -200,19 +211,186 @@ class fetchMode:
     do the actual fetching from the web site.
     '''
     
-    articleTag = 'article';
-    linkTag = 'a';
-    dflt_parser = etree.HTMLParser(remove_blank_text=True);
+    modeparser = etree.XMLParser(remove_blank_text=True,remove_comments=True);
+    parsers = {
+               'HTML' : etree.HTMLParser(),
+               'XML' : etree.XMLParser()
+               };
     
-    def __init__(self, name, parser=dflt_parser):
+    titleLoc = None;
+    authorLoc = None;
+    citeLoc = {
+               'journal' : None,
+               'volume' : None,
+               'issue' : None,
+               'pages' : None,
+               'doi' : None,
+               'year' : None
+               };
+               
+    suppInfo = {
+                'title' : None,
+                'pdf' : None,
+                'desc' : None
+                };
+    
+    def __init__(self, modeFile):
         """
         Provide a name and various parameters to create the class object.
         
-        @param name: String, the name of the mode. (e.g. "Nature")
+        @param modeFile: String which is the absolute path pointing to the xml file containing the
+                        mode specifications.
         """
-        self.name = name;
-        self.parser = parser;
+                
+        tree = etree.parse(modeFile, self.modeparser);
+        root = tree.getroot();
         
+        fvers = self.fvers = CompatibilityHelper(root);
+        
+        self.name = root.attrib[fvers.ModeXML.name];
+        self.nsteps = int(root.attrib[fvers.ModeXML.nsteps]);
+        
+        # Parse out the steps
+        sparsers = [None]*self.nsteps;
+        links = [None]*(self.nsteps-1);
+        
+        for step in root.findall(fvers.ModeXML.step):
+            i = int(step.attrib[fvers.ModeXML.num]);
+            print(step.attrib[fvers.ModeXML.parser]);
+            sparsers[i] = self.parsers[step.attrib[fvers.ModeXML.parser]];
+        
+            # Parse out the steps we need - start with the links.
+            ll = step.find(fvers.ModeXML.linkLoc);
+            if i != self.nsteps-1 and ll == None:
+                raise ModeException(ModeException.ERR_NO_LINK);
+            elif ll != None:
+                links[i] = self.parseLoc(ll);
+                if fvers.ModeXML.articleLink in ll.attrib and \
+                    boolString(ll.attrib[fvers.ModeXML.articleLink]):
+                    self.aLinkStep = i;
+            
+            # Check for the title
+            if self.titleLoc == None:
+                tl = step.find(fvers.ModeXML.titleLoc);
+                if tl != None:
+                    if fvers.ModeXML.useLinkText in tl.attrib and \
+                    boolString(tl.attrib[fvers.ModeXML.useLinkText]):
+                        titleLoc = links[i];
+                        titleLoc[-1].set_at(None);
+                        self.titleLoc = self.Loc(titleLoc, i);
+                    else:
+                        self.titleLoc = self.Loc(self.parseLoc(tl), i);
+            
+            # Check for the author list
+            if self.authorLoc == None:
+                al = step.find(fvers.ModeXML.authorLoc);
+                if al != None:
+                    self.authorLoc = self.Loc(self.parseLoc(al), i);
+            
+            # Check for a citation location.
+            cl = step.find(fvers.ModeXML.citeLoc);
+            if(cl != None):
+                jl = cl.find(fvers.ModeXML.journalName);
+                if(jl != None):
+                    self.citeLoc['journal'] = self.Loc(self.parseLoc(jl), i);
+                
+                vl = cl.find(fvers.ModeXML.volume);
+                if(vl != None):
+                    self.citeLoc['volume'] = self.Loc(self.parseLoc(vl), i);
+                
+                il = cl.find(fvers.ModeXML.issue);
+                if(il != None):
+                    self.citeLoc['issue'] = self.Loc(self.parseLoc(il), i);
+                
+                pl = cl.find(fvers.ModeXML.pages);
+                if(pl != None):
+                    self.citeLoc['pages'] = self.Loc(self.parseLoc(pl), i);
+                
+                dl = cl.find(fvers.ModeXML.doi);
+                if(dl != None):
+                    self.citeLoc['doi'] = self.Loc(self.parseLoc(dl), i);
+                
+                yl = cl.find(fvers.ModeXML.year);
+                if(yl != None):
+                    self.citeLoc['year'] = self.Loc(self.parseLoc(yl), i);
+            
+            # Find supplementary information
+            if self.suppInfo == None:
+                sl = step.find(fvers.ModeXML.suppInfo);
+                if(sl != None):
+                    slp = self.parseTag(sl);
+                    
+                    tl = step.find(fvers.ModeXML.title);
+                    if(tl != None):
+                        self.suppInfo['title'] = self.Loc(self.parseLoc(tl, slp), i);
+                    
+                    pl = step.find(fvers.ModeXML.pdf);
+                    if(pl != None):
+                        self.suppInfo['pdf'] = self.Loc(self.parseLoc(pl, slp), i);
+                    
+                    dl = step.find(fvers.ModeXML.desc);
+                    if(dl != None):
+                        self.suppInfo['desc'] = self.Loc(self.parseLoc(dl, slp), i);
+            
+        self.sparsers = sparsers;        
+        self.links = links;
+        
+    def parseLoc(self, element, parent=None):
+        '''
+        Give an element in the tree that is of the 'Loc' type, and this will parse it into a list
+        of the nested tags where you can find the object.
+        
+        @param element: The element you're interested in.
+        @param parent: The parent element of the list. Pass None to detect from the tag itself.
+        @return: Returns a list of tags.
+        '''
+        
+        fvers = self.fvers;
+        if(parent == None):
+            parent = self.parseTag(element);
+           
+        tags = [parent];
+        for child in element:
+            tags.append(self.parseTag(child));
+                    
+        # Check if the final tag has an 'at' attribute.
+        child = element[-1];
+        if(fvers.ModeXML.attrib in child.attrib):
+            tags[-1].set_at(child.attrib[fvers.ModeXML.attrib]);
+        
+        return tags;
+    
+    def parseTag(self, element):
+        '''
+        Called to parse a given tag in the list of the 'Loc' type things. They can have a tag named
+        'tag' to specify the name, otherwise the text itself specifies the name.
+        
+        @param element: The element in the tree.
+        @return: Returns a Tag item.
+        @raise ModeException:  Raises this in the event of no specified name. 
+        '''
+        
+        fvers = self.fvers;
+        
+        if fvers.ModeXML.tag in element.attrib:             
+            tag = element.attrib[fvers.ModeXML.tag];
+        elif element.text != None:
+            tag = element.text;
+        else:
+            raise ModeException(ModeException.ERR_NO_TAG);
+        
+        if(fvers.ModeXML._class in element.attrib):
+            _class = element.attrib[fvers.ModeXML._class];
+        else:
+            _class = None;
+          
+        if(fvers.ModeXML._id in element.attrib):
+            _id = element.attrib[fvers.ModeXML._id];
+        else:
+            _id = None;
+            
+        return self.Tag(tag, _class, _id);        
+                    
     def allTags(self, tag):
         '''
         Basically take the given tag and add .// to the beginning, for a recursive search of the 
@@ -223,6 +401,74 @@ class fetchMode:
         '''
         
         return './/'+tag;
+    
+    class Loc:
+        '''
+        Class for specifying locations and such.
+        '''
+        
+        def __init__(self, tags, step):
+            '''
+            Instantiate the class with a list of tags locating the relevant information and the 
+            step number that it's in (0-based index.);
+            
+            @param tags: List of Tag items.
+            @param step: int, the step it's on.
+            '''
+            self.tags = tags;
+            self.step = step;
+    
+    class Tag:
+        '''
+        Class for specifying a kind of tag.
+        '''
+        
+        name = None;
+        _class = None;
+        _id = None;
+        _at = None;
+        
+        def __init__(self, name, _class=None, _id=None, _at=None):
+            '''
+            Instantiate the class with the name, and, optionally, the class and id.
+            
+            @param name: The name of the tag (e.g. 'a', 'div', etc.)
+            @param _class: The class of the tag (css, etc)
+            @param _id: The id of the tag.
+            @param _at: The attribute to use (final tags only)
+            '''
+            
+            self.name = name;
+            self._class = _class;
+            self._id = _id;
+        
+        def has_id(self):
+            return (not self._id == None);
+        
+        def has_class(self):
+            return (not self._class == None);
+        
+        def use_at(self):
+            return (not self._at == None);
+        
+        def get_class(self):
+            return self._class;
+        
+        def get_id(self):
+            return self._id;
+        
+        def get_at(self):
+            return self._at;
+        
+        def set_id(self, val):
+            self._id = val;
+        
+        def set_class(self, val):
+            self._class = val;
+        
+        def set_at(self, val):
+            self._at = val;
+            
 
 class CompatibilityHelper:
     """
@@ -232,7 +478,10 @@ class CompatibilityHelper:
     first_version = 0.1;
     
     modesTag = 'Modes';
-    versionTag = 'Version';
+    versionTag = 'version';
+    
+    modeLocAttrib = 'location';
+    
     
     def __init__(self, version=current_version):
         """
@@ -265,4 +514,47 @@ class CompatibilityHelper:
             raise CompatibilityException(CompatibilityException.ERR_FUTURE);
         elif version < self.first_version:
             raise CompatibilityException(CompatibilityException.ERR_INVALID_VERSION);
-            
+    
+    
+    class ModeXML:
+        '''
+        Subclass containing information about how to parse Mode XML files. Put in this subclass 
+        to isolate the namespaces.
+        '''
+        
+        # Tags
+        step = 'Step';   # Tag for each given step
+        
+        titleLoc = 'titleLoc';  
+        linkLoc = 'linkLoc';    
+        authorLoc = 'authorLoc';
+        pdfLoc = 'pdfLoc';
+        citeLoc = 'citeLoc';
+        suppInfo = 'suppInfo';
+        
+        # Citation-specific tags        
+        journalName='journalName';
+        volume = 'volume';
+        pages = 'pages';
+        doi = 'doi';
+        issue = 'issue';
+        year = 'year';
+        
+        # Supplemental Information-specific tags
+        pdf = 'pdf';
+        desc = 'desc';
+        title = 'title';
+        
+        # Attributes
+        name = 'name';      # For the name of a given object, mode, etc.
+        nsteps = 'nsteps';
+        num = 'n';          # For ordering steps
+        parser = 'parser';
+        _class = 'class';
+        tag = 'tag';
+        _id = 'id';
+        attrib = 'at';
+        
+        # Specific sub-tags.
+        useLinkText = 'useLinkText';
+        articleLink = 'articleLink';
