@@ -43,7 +43,7 @@ class PDFDownloader:
         self.base_url = urlparse.urlparse(url).netloc;
         base_url = self.base_url;
        
-        # Execute the steps, in order, and capture things.
+        # Build the step items
         
         
         # Build the tables of contents from the URL.
@@ -74,5 +74,40 @@ class PDFDownloader:
             self.links[i] = link.get('href');
         '''
         
+    def parseStep(self, step):
+        '''
+        This function is called recursively and is used to step through all
+        the sub-branches of a given step.
         
+        e.g. For a mode where Step 1 finds a list of subsections, Step 2
+        has a list of articles and Step 3 has a link to the actual articles,
+        the tree will look like this:
         
+        Step 1      ->    Step 2a     ->   Step 3a-a
+                                      ->   Step 3a-b
+                                      ->   Step 3a-c
+                    ->    Step 2b     ->   Step 3b-a
+                                      ->   Step 3b-b
+                                      ->   Step 3b-c
+                        ...
+        
+        Since it is not known until the parsing has already been done how 
+        many substeps there will be at each point, once the number of 
+        substeps of a given step have been parsed, it can iterate over each
+        of the substeps and flesh out the matrix structure of the tree.
+        
+        Since this operation is by its very nature highly parallel, we'll 
+        try to do this in as threadsafe a manner as possible, to allow for
+        code optimisation.
+        
+        @param step: A Step item telling us what we are looking for on a 
+                    given step.
+        @return: Returns a Branch item with information about the full tree
+                substructure
+        '''
+        pass
+
+            
+        
+                
+            

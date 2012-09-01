@@ -209,6 +209,86 @@ class fetchMode:
     '''
     Class which encapsulates the various things you'd want to know about how to
     do the actual fetching from the web site.
+    
+    The XML structure, version 0.1, is detailed below:
+                    
+    Tag:        root
+    Desc:       The root tag, contains the file
+    Parent:     None
+    Type:       None
+    Children:   Step
+    Attributes
+    ----------
+    name:       The name of the mode
+    nsteps:     The number of steps in the search
+    version:    The XML document version used to create the document.
+    ----------
+    
+    Tag:        Step
+    Desc:       Contains information about what can be found at a given 
+                step in the process and where to find it.
+    Parent:     root
+    Type:       None 
+    Children:   titleLoc, linkLoc, authorLoc, pdfLoc, citeLoc, suppInfo
+    Attributes
+    ----------
+    n =         The place in the ordering that this takes place. It is best 
+                practice to put the steps in order, but this protects against 
+                jumbling.
+    parser =    What type of parser to use. Possible values are 'HTML' and 
+                'XML' for HTMLParser() and XMLParser(), respectively. One of 
+                these must be the first element. If you wish to pass arguments
+                to the parsers, use a semicolon, then arg_name=arg_val.
+    ----------
+    
+    Tag:        *Loc
+    Desc:       Tags ending in Loc will have a certain base form, described
+                here. They are meant to find a given item in the list.
+    Parent:     Step
+    Children:   li
+    Attributes
+    ----------
+    tag:        The parent tag within which the desired information is located.
+                This tag is the highest tag in a unique tree structure which 
+                differentiates information you care about from information you
+                don't.
+    class:      The class that goes along with 'tag' (blank if None)
+    id:         The id that goes along with 'tag' (blank if none)
+    ----------
+    
+    Tag:        linkLoc
+    Desc:       The location of the link to the next step (required in all but
+                the final step).
+    Parent:     Step
+    Type:       Loc 
+    Children:   li
+    Attributes
+    ----------
+    articleLink: Boolean value, whether or not this link is the link to the 
+                article you'd like to download.
+    ----------
+    
+    Tag:        titleLoc
+    Desc:       The location of the title of the article.
+    Parent:     Step
+    Type:       Loc 
+    Children:   li
+    Attributes
+    ----------
+    useLinkText: If this is set to true, the text from the article link will be
+                used, and no tree structure need be specified
+    ----------
+    
+    Tag:        authorLoc
+    Desc:       The location of the author(s) of the article.
+    Parent:     Step
+    Type:       Loc 
+    Children:   li
+    Attributes
+    ----------
+    None
+    ----------   
+    
     '''
     
     modeparser = etree.XMLParser(remove_blank_text=True,remove_comments=True);
@@ -468,6 +548,71 @@ class fetchMode:
         
         def set_at(self, val):
             self._at = val;
+            
+    class Step:
+        '''
+        Class containing information about where to find the information in a 
+        given step. This is arranged as a linked-list, and so must contain
+        references to the previous and next steps
+        '''
+        
+        # List linking
+        next = None
+        prev = None
+        
+        # The Loc items
+        linkLoc = None
+        titleLoc = None
+        authorLoc = None
+        citeLoc = None
+        suppInfo = None
+        
+        # Booleans
+        useLinkText = False
+        isArticleLink = True
+        
+        def __init__(self, prev_step=None, linkLoc=None,
+                     titleLoc=None,authorLoc=None,citeLoc=None,suppInfo=None):
+            '''
+            Constructor for the Step. The first argument should be the previous
+            step. If it is not None, the linked list will be updated as is 
+            appropriate. If prev_step already has a next step, this step will 
+            be created as an intermediate, rather than replacing the branch in
+            the tree.
+            
+            Any of the paramaters can be set to None. If there is more than one
+            location for authorLoc, citeLoc or suppInfo, pass a list.
+            
+            @param prev_step: Step item, the previous step in the list.
+            @param linkLoc: Loc item, the location to find the next link.
+            @param titleLoc: Loc item, the location to find the title. If 
+                            it is using the text of the link, pass the same Loc
+                            object as that passed to linkLoc.
+            @param authorLoc: Loc item detailing the location of the authors.
+            @param citeLoc: Loc item detailing the location of the citation.
+            @param suppInfo: Loc item detailing the location of supplemental 
+                            information.
+            '''
+            
+            # Update the linked list
+            prev = self.prev = prev_step
+            
+            if prev is not None:
+                if prev.next is not None:
+                    self.next = prev.next
+                    prev.next.prev = self
+                prev.next = self
+            
+            # Add the loc items
+            self.linkLoc = linkLoc
+            self.authorLoc = authorLoc
+            self.citeLoc = citeLoc
+            self.suppInfo = suppInfo
+            
+            if linkLoc is not None and titleLoc is linkLoc:
+                self.useLinkText = True
+            else:
+                self.titleLoc = titleLoc
             
 
 class CompatibilityHelper:
